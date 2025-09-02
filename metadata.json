@@ -1,0 +1,5 @@
+{
+  "name": "AI eBay Lister",
+  "description": "An application that uses the Gemini API to analyze product images and generate a complete, editable eBay listing.",
+  "requestFramePermissions": []
+}
