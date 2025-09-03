@@ -106,7 +106,6 @@ const App: React.FC = () => {
 
           <div className="lg:col-span-3">
              <section className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-2xl border border-slate-700 min-h-[400px]">
-                <h2 className="text-xl font-bold text-green-400 mb-4">2. Generated Listing Details</h2>
                  {isLoading && <Loader />}
                  {error && <ErrorMessage message={error} />}
                  {listingData && !isLoading && !error && <ResultDisplay listingData={listingData} />}

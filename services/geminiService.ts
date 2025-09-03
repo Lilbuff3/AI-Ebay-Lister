@@ -49,12 +49,12 @@ Additionally, generate a shipping recommendation based on the product's typical 
 
 CRITICAL: You MUST return your response as a single, valid JSON object enclosed in a \`\`\`json ... \`\`\` block. Do not include any text outside of this block. The JSON object must conform to this structure:
 {
-  "title": "An SEO-optimized, keyword-dense title under 80 characters. Your goal is to include as many relevant search terms as possible without sacrificing readability. Prioritize: Brand, Model Number, Key Specifications (e.g., size, capacity), Part Number, Condition (if not 'New'), and any other critical identifiers a buyer would search for. Use your search findings to pack the title with high-value keywords.",
+  "title": "Your top priority is to create a maximally keyword-dense, SEO-optimized title under 80 characters. Aggressively pack the title with every relevant search term a buyer might use, based on your image analysis and Google Search findings. Maintain basic readability but prioritize keyword density. The structure should be: [Brand] [Model Name/Number] [Part Number, if available] [Key Specifications, e.g., Color, Size, Capacity] [Core Function] [Condition]. Use every available character to add valuable keywords.",
   "category_suggestion": "The most likely eBay category path.",
   "condition": "Choose 'New', 'Used', or 'For parts or not working' based on the images.",
   "description": "A factual description formatted for mobile readability with short paragraphs, bullet points, and the mandatory two-line ending.",
   "item_specifics": [ { "name": "string", "value": "string" } ], // Generate key-value pairs. For each specific's 'name', use a standard, widely-searched term (e.g., 'Compatible Model' is better than 'For Model'). CRITICAL: Avoid redundancy. If a fact (like brand or model) is already clear in the title, do not repeat it as a specific. Focus on providing *additional* details that a buyer would need.
-  "price_recommendation": { "price": number, "justification": "CRUCIAL: Provide a detailed justification for the price. You MUST cite specific examples of comparable sold items (e.g., 'Sold for $XX on [site]') or specific market trends discovered during your search. General statements are not sufficient." },
+  "price_recommendation": { "price": number, "justification": "CRITICAL REQUIREMENT: Your justification MUST be evidence-based and highly specific. Reference comparable items that have recently sold (including the price and platform, e.g., 'A similar model in used condition sold for ~$150 on eBay last month') and mention current market trends discovered during your Google Search. Vague statements are unacceptable. Your credibility depends on a specific, well-researched justification." },
   "shipping_recommendation": { "est_weight": "string", "est_dimensions": "string", "rec_service": "string" }
 }
 `;

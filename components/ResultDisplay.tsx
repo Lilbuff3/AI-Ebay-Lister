@@ -72,6 +72,8 @@ const DetailSection: React.FC<DetailSectionProps> = ({ title, copyId, copyText, 
 
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ listingData }) => {
+    const [copiedId, copy] = useCopyToClipboard();
+
     const formattedDescription = listingData.description
         .split('\n')
         .map((paragraph, i) => (
@@ -80,8 +82,55 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ listingData }) => {
 
     const itemSpecificsText = listingData.item_specifics.map(s => `${s.name}: ${s.value}`).join('\n');
     
+    const handleExportAll = () => {
+        const specificsText = listingData.item_specifics.map(s => `${s.name}: ${s.value}`).join('\n');
+        
+        const exportText = `
+Title:
+${listingData.title}
+
+Category:
+${listingData.category_suggestion}
+
+Condition:
+${listingData.condition}
+
+Recommended Price:
+$${listingData.price_recommendation.price.toFixed(2)}
+Justification: ${listingData.price_recommendation.justification}
+
+Item Specifics:
+${specificsText}
+
+Shipping Recommendation:
+Est. Weight: ${listingData.shipping_recommendation.est_weight}
+Est. Dimensions: ${listingData.shipping_recommendation.est_dimensions}
+Rec. Service: ${listingData.shipping_recommendation.rec_service}
+
+Description:
+${listingData.description}
+        `.trim();
+
+        copy(exportText, 'export-all');
+    };
+
+    const isExportCopied = copiedId === 'export-all';
+
     return (
         <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-green-400">2. Generated Listing Details</h2>
+                 <button
+                    type="button"
+                    onClick={handleExportAll}
+                    className={`px-3 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors font-semibold ${isExportCopied ? 'bg-green-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
+                    aria-label="Export all details"
+                >
+                    {isExportCopied ? <CheckIcon className="w-5 h-5" /> : <CopyIcon className="w-5 h-5" />}
+                    {isExportCopied ? 'Copied' : 'Export All'}
+                </button>
+            </div>
+
             {/* Price */}
              <div>
                 <h3 className="font-semibold text-green-400 mb-2">Recommended Price</h3>
