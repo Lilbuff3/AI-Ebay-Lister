@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import type { EBayListing } from '../App';
+import type { EBayListing } from '../types';
 
 interface ResultDisplayProps {
   listingData: EBayListing;
+  onUpdate: (data: EBayListing) => void;
+  onRefine: (prompt: string) => Promise<void>;
+  isRefining: boolean;
 }
+
+const inputStyles = "mt-1 block w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-slate-300 focus:ring-indigo-500 focus:border-indigo-500 transition";
+const labelStyles = "font-semibold text-green-400";
+const sectionSpacing = "space-y-4";
 
 const CopyIcon: React.FC<{className?: string}> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-5 h-5"}>
@@ -17,71 +24,41 @@ const CheckIcon: React.FC<{className?: string}> = ({ className }) => (
     </svg>
 );
 
-const InfoIcon: React.FC<{className?: string}> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-4 h-4"}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
+const EditableSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <div>
+        <h3 className={labelStyles}>{title}</h3>
+        <div className="mt-2 space-y-3">{children}</div>
+    </div>
 );
 
-const useCopyToClipboard = (): [string | null, (text: string, id: string) => void] => {
-    const [copiedId, setCopiedId] = useState<string | null>(null);
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ listingData, onUpdate, onRefine, isRefining }) => {
+    const [copied, setCopied] = useState(false);
+    const [refinePrompt, setRefinePrompt] = useState('');
 
-    const copy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            setCopiedId(id);
-            setTimeout(() => setCopiedId(null), 2000);
-        });
+    const handleFieldChange = (field: keyof EBayListing, value: any) => {
+        onUpdate({ ...listingData, [field]: value });
     };
 
-    return [copiedId, copy];
-};
-
-interface DetailSectionProps {
-    title: string;
-    copyId?: string;
-    copyText?: string;
-    children: React.ReactNode;
-}
-
-const DetailSection: React.FC<DetailSectionProps> = ({ title, copyId, copyText, children }) => {
-    const [copiedId, copy] = useCopyToClipboard();
-    const isCopied = copyId && copiedId === copyId;
-
-    return (
-        <div>
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold text-green-400">{title}</h3>
-                {copyText && copyId && (
-                     <button 
-                        type="button" 
-                        onClick={() => copy(copyText, copyId)}
-                        className={`px-3 py-1 text-xs rounded-md flex items-center gap-1 transition-colors ${isCopied ? 'bg-green-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
-                        aria-label={`Copy ${title}`}
-                    >
-                         {isCopied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
-                        {isCopied ? 'Copied' : 'Copy'}
-                    </button>
-                )}
-            </div>
-            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 text-slate-300 space-y-2">
-                {children}
-            </div>
-        </div>
-    );
-};
-
-
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ listingData }) => {
-    const [copiedId, copy] = useCopyToClipboard();
-
-    const formattedDescription = listingData.description
-        .split('\n')
-        .map((paragraph, i) => (
-            <p key={i}>{paragraph.replace(/^\*/, '•')}</p> 
-        ));
-
-    const itemSpecificsText = listingData.item_specifics.map(s => `${s.name}: ${s.value}`).join('\n');
+    const handleNestedChange = (section: keyof EBayListing, field: string, value: any) => {
+        let parsedValue = value;
+        if (field === 'price' && typeof value === 'string') {
+            parsedValue = parseFloat(value) || 0;
+        }
+        onUpdate({
+            ...listingData,
+            [section]: {
+                ...(listingData[section] as object),
+                [field]: parsedValue,
+            },
+        });
+    };
     
+    const handleSpecificsChange = (index: number, field: 'name' | 'value', value: string) => {
+        const newSpecifics = [...listingData.item_specifics];
+        newSpecifics[index] = { ...newSpecifics[index], [field]: value };
+        handleFieldChange('item_specifics', newSpecifics);
+    };
+
     const handleExportAll = () => {
         const specificsText = listingData.item_specifics.map(s => `${s.name}: ${s.value}`).join('\n');
         
@@ -111,114 +88,210 @@ Description:
 ${listingData.description}
         `.trim();
 
-        copy(exportText, 'export-all');
+        navigator.clipboard.writeText(exportText).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
     };
 
-    const isExportCopied = copiedId === 'export-all';
+     const handleRefineClick = () => {
+        if (!refinePrompt.trim()) return;
+        onRefine(refinePrompt);
+        setRefinePrompt('');
+    };
+    
+    const categoryPath = listingData.category_suggestion.split('>').map(part => part.trim());
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-green-400">2. Generated Listing Details</h2>
+        <div className="space-y-8 animate-fade-in">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-green-400">Generated Listing Details</h2>
                  <button
                     type="button"
                     onClick={handleExportAll}
-                    className={`px-3 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors font-semibold ${isExportCopied ? 'bg-green-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
+                    className={`px-3 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors font-semibold ${copied ? 'bg-green-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
                     aria-label="Export all details"
                 >
-                    {isExportCopied ? <CheckIcon className="w-5 h-5" /> : <CopyIcon className="w-5 h-5" />}
-                    {isExportCopied ? 'Copied' : 'Export All'}
+                    {copied ? <CheckIcon className="w-5 h-5" /> : <CopyIcon className="w-5 h-5" />}
+                    {copied ? 'Copied' : 'Export All'}
                 </button>
             </div>
 
-            {/* Price */}
-             <div>
-                <h3 className="font-semibold text-green-400 mb-2">Recommended Price</h3>
-                <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                     <div className="flex items-center gap-2">
-                         <span className="text-4xl font-bold text-slate-100">${listingData.price_recommendation.price.toFixed(2)}</span>
-                        <div className="relative group">
-                            <InfoIcon className="text-slate-500 cursor-help" />
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 bg-slate-950 text-slate-300 text-xs rounded-lg p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-700">
-                                {listingData.price_recommendation.justification}
-                            </div>
+            <div className={`${sectionSpacing} pb-40`}>
+                <EditableSection title="Recommended Price">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <label htmlFor="price" className="text-sm font-medium text-slate-400">Price ($)</label>
+                            <input
+                                id="price"
+                                type="number"
+                                value={listingData.price_recommendation.price}
+                                onChange={(e) => handleNestedChange('price_recommendation', 'price', e.target.value)}
+                                className={inputStyles}
+                                step="0.01"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                             <label htmlFor="justification" className="text-sm font-medium text-slate-400">Price Justification</label>
+                            <textarea
+                                id="justification"
+                                value={listingData.price_recommendation.justification}
+                                onChange={(e) => handleNestedChange('price_recommendation', 'justification', e.target.value)}
+                                className={`${inputStyles} h-24`}
+                            />
                         </div>
                     </div>
-                </div>
+                </EditableSection>
+                
+                <EditableSection title="Listing Details">
+                    <div>
+                        <label htmlFor="title" className="text-sm font-medium text-slate-400">eBay Title</label>
+                        <input
+                            id="title"
+                            type="text"
+                            value={listingData.title}
+                            onChange={(e) => handleFieldChange('title', e.target.value)}
+                            className={inputStyles}
+                        />
+                    </div>
+                     <div>
+                        <label className="text-sm font-medium text-slate-400 block mb-1">eBay Category</label>
+                        <div className="flex flex-wrap items-center gap-x-2 p-2 rounded-md bg-slate-900 border border-slate-700">
+                          {categoryPath.map((part, index) => (
+                            <React.Fragment key={index}>
+                              <span className="text-slate-300">{part}</span>
+                              {index < categoryPath.length - 1 && <span className="text-slate-500">&gt;</span>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                         <input
+                            id="category"
+                            type="text"
+                            value={listingData.category_suggestion}
+                            onChange={(e) => handleFieldChange('category_suggestion', e.target.value)}
+                            className={`${inputStyles} mt-2`}
+                            aria-label="Full category path"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="condition" className="text-sm font-medium text-slate-400">Condition</label>
+                        <select
+                            id="condition"
+                            value={listingData.condition}
+                            onChange={(e) => handleFieldChange('condition', e.target.value)}
+                            className={inputStyles}
+                        >
+                            <option>Used</option>
+                            <option>New</option>
+                            <option>For parts or not working</option>
+                        </select>
+                    </div>
+                </EditableSection>
+
+                <EditableSection title="Item Specifics">
+                    <div className="space-y-3">
+                        {listingData.item_specifics.map((spec, index) => (
+                            <div key={index} className="grid grid-cols-2 gap-2 items-center text-sm">
+                                <input
+                                    type="text"
+                                    value={spec.name}
+                                    onChange={(e) => handleSpecificsChange(index, 'name', e.target.value)}
+                                    className={`${inputStyles} mt-0`}
+                                    aria-label={`Specific name ${index + 1}`}
+                                />
+                                <input
+                                    type="text"
+                                    value={spec.value}
+                                    onChange={(e) => handleSpecificsChange(index, 'value', e.target.value)}
+                                    className={`${inputStyles} mt-0`}
+                                    aria-label={`Specific value ${index + 1}`}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </EditableSection>
+
+                <EditableSection title="Shipping Recommendation">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                             <label htmlFor="est_weight" className="text-sm font-medium text-slate-400">Est. Weight</label>
+                            <input
+                                id="est_weight"
+                                type="text"
+                                value={listingData.shipping_recommendation.est_weight}
+                                onChange={(e) => handleNestedChange('shipping_recommendation', 'est_weight', e.target.value)}
+                                className={inputStyles}
+                            />
+                        </div>
+                        <div>
+                             <label htmlFor="est_dimensions" className="text-sm font-medium text-slate-400">Est. Dimensions</label>
+                            <input
+                                id="est_dimensions"
+                                type="text"
+                                value={listingData.shipping_recommendation.est_dimensions}
+                                onChange={(e) => handleNestedChange('shipping_recommendation', 'est_dimensions', e.target.value)}
+                                className={inputStyles}
+                            />
+                        </div>
+                        <div className="sm:col-span-2">
+                             <label htmlFor="rec_service" className="text-sm font-medium text-slate-400">Rec. Service</label>
+                            <input
+                                id="rec_service"
+                                type="text"
+                                value={listingData.shipping_recommendation.rec_service}
+                                onChange={(e) => handleNestedChange('shipping_recommendation', 'rec_service', e.target.value)}
+                                className={inputStyles}
+                            />
+                        </div>
+                    </div>
+                </EditableSection>
+                
+                <EditableSection title="Description">
+                    <textarea
+                        value={listingData.description}
+                        onChange={(e) => handleFieldChange('description', e.target.value)}
+                        className={`${inputStyles} h-48`}
+                    />
+                </EditableSection>
+
+                {listingData.sources && listingData.sources.length > 0 && (
+                     <EditableSection title="Sources">
+                        <ul className="list-disc list-inside space-y-2 text-sm">
+                        {listingData.sources.map((source, index) => (
+                            <li key={index}>
+                                <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 hover:underline underline-offset-2 break-all">
+                                    {source.title || source.uri}
+                                </a>
+                            </li>
+                        ))}
+                        </ul>
+                    </EditableSection>
+                )}
             </div>
 
-            {/* Title */}
-            <DetailSection title="eBay Title" copyId="title" copyText={listingData.title}>
-                 <p>{listingData.title}</p>
-            </DetailSection>
-
-             {/* Category */}
-            <DetailSection title="eBay Category" copyId="category" copyText={listingData.category_suggestion}>
-                <div className="flex items-center flex-wrap text-sm" aria-label="Category Path">
-                    {listingData.category_suggestion.split('>').map((part, index, arr) => (
-                        <React.Fragment key={index}>
-                            <span className="font-medium">{part.trim()}</span>
-                            {index < arr.length - 1 && <span className="mx-2 text-slate-500" aria-hidden="true">&gt;</span>}
-                        </React.Fragment>
-                    ))}
-                </div>
-            </DetailSection>
-
-            {/* Item Specifics */}
-            <DetailSection title="Item Specifics" copyId="specs" copyText={itemSpecificsText}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                    {listingData.item_specifics.map((spec) => (
-                        <div key={spec.name} className="grid grid-cols-2 text-sm">
-                            <span className="font-medium text-slate-400">{spec.name}</span>
-                            <span>{spec.value}</span>
-                        </div>
-                    ))}
-                     <div className="grid grid-cols-2 text-sm">
-                        <span className="font-medium text-slate-400">Condition</span>
-                        <span>{listingData.condition}</span>
+            <div className="sticky bottom-0 bg-slate-800/95 backdrop-blur-md -mx-6 -mb-6 sm:-mx-8 sm:-mb-8 px-6 pt-6 pb-6 sm:px-8 sm:pb-8 rounded-t-xl border-t border-slate-700 shadow-2xl shadow-slate-900/50">
+                <EditableSection title="Refine with AI">
+                    <p className="text-sm text-slate-400 -mt-1 mb-3">
+                        Use plain language to ask the AI to make changes. E.g: "Change condition to 'New'" or "Make title shorter".
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 items-center">
+                        <textarea
+                            value={refinePrompt}
+                            onChange={(e) => setRefinePrompt(e.target.value)}
+                            className={`${inputStyles} h-20 sm:h-12 flex-grow resize-y`}
+                            placeholder="Enter your refinement request..."
+                            disabled={isRefining}
+                        />
+                        <button
+                            onClick={handleRefineClick}
+                            disabled={isRefining || !refinePrompt.trim()}
+                            className="w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-800 disabled:bg-slate-600 disabled:cursor-not-allowed transition-all duration-300 ease-in-out self-stretch"
+                        >
+                            {isRefining ? 'Refining...' : 'Refine'}
+                        </button>
                     </div>
-                </div>
-            </DetailSection>
-
-             {/* Shipping */}
-            <DetailSection title="Shipping Recommendation">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                    <div className="grid grid-cols-2 text-sm">
-                        <span className="font-medium text-slate-400">Est. Weight</span>
-                        <span>{listingData.shipping_recommendation.est_weight}</span>
-                    </div>
-                    <div className="grid grid-cols-2 text-sm">
-                        <span className="font-medium text-slate-400">Est. Dimensions</span>
-                        <span>{listingData.shipping_recommendation.est_dimensions}</span>
-                    </div>
-                     <div className="grid grid-cols-2 text-sm sm:col-span-2">
-                        <span className="font-medium text-slate-400">Rec. Service</span>
-                        <span>{listingData.shipping_recommendation.rec_service}</span>
-                    </div>
-                </div>
-            </DetailSection>
-
-            {/* Description */}
-            <DetailSection title="Description" copyId="description" copyText={listingData.description}>
-                <div className="prose prose-sm prose-invert max-w-none text-slate-300 space-y-3">
-                    {formattedDescription}
-                </div>
-            </DetailSection>
-
-             {/* Sources */}
-            {listingData.sources && listingData.sources.length > 0 && (
-                <DetailSection title="Sources">
-                    <ul className="list-disc list-inside space-y-2 text-sm">
-                       {listingData.sources.map((source, index) => (
-                           <li key={index}>
-                               <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 hover:underline underline-offset-2 break-all">
-                                   {source.title || source.uri}
-                               </a>
-                           </li>
-                       ))}
-                    </ul>
-                </DetailSection>
-            )}
+                </EditableSection>
+            </div>
         </div>
     );
 };

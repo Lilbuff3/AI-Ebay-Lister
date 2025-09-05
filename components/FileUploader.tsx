@@ -80,7 +80,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ files, onFilesChange }) => 
         multiple
       />
       {hasFiles ? (
-        <div className="grid grid-cols-3 gap-2 w-full">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 w-full">
             {imagePreviews.map((src, index) => (
                 <div key={index} className="relative aspect-square overflow-hidden rounded-md border border-slate-700">
                     <img
